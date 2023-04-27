@@ -1,5 +1,6 @@
-import numpy as np
+import time
 
+from src.authorization import Auth
 from src.checkers import Checkers
 from src.globals import Globals
 import socket
@@ -9,22 +10,20 @@ import pygame
 
 class UI:
     def __init__(self):
-        # self.game = Checkers(True)
-        # self.game.draw_board()
-        # self.game.draw_pieces()
-        #
-        # print(str(self.game.board))
-
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self.sock.connect(('localhost', 10111))
         self.serial_id = self.sock.recv(10).decode()
-
-        print('Serid: ', self.serial_id)
-
         self.whoami = self.sock.recv(1).decode()
 
-        print('I am enemy: ', self.whoami)
+        print(f'serial id {self.serial_id}')
+        print(f'am I the enemy? {self.whoami}')
+
+        self.auth = Auth()                      # create authorization query
+        self.auth.show_login_form()
+        action = self.auth.main_menu()
+        self.sock.send(f'{action}:{self.auth.login}:{self.auth.room_id}'.encode())
+        self.auth.close()
 
         self.game = Checkers(int(self.whoami))
         self.game.draw_board()
@@ -42,12 +41,16 @@ class UI:
             print('Waiting')
             pl_id = self.sock.recv(10).decode()
 
+            if not pl_id:
+                print('continuing')
+                continue
+
             print(f'=========== {num} {pl_id} ===========')
             num += 1
 
             if pl_id.find('Next') == -1:
                 data = self.sock.recv(2000).decode()    # wait
-                print('Received some data')
+                print('Received some data', data)
                 self.game.init_board_from_str(data)
                 self.game.draw_board()
                 self.game.draw_pieces()
@@ -65,7 +68,8 @@ class UI:
 
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
-                        self.sock.send('End'.encode())
+                        self.sock.send(b'0')
+                        self.sock.send(b'End program')
                         pygame.quit()
                         sys.exit()
                     elif event.type == pygame.MOUSEBUTTONDOWN:
@@ -74,18 +78,23 @@ class UI:
 
                         if self.game.selected[0] is None and self.game.board[x_pos][y_pos] and \
                                 not self.game.board[x_pos][y_pos].is_enemy:
-                            # print(np.asarray(self.game.board))
-                            # print('Pos: ', x_pos, y_pos)
                             self.game.selected = [x_pos, y_pos]
                         elif not self.game.capture_series and x_pos == self.game.selected[0] and y_pos == \
                                 self.game.selected[1]:
                             self.game.selected = [None, None]
                         elif self.game.selected[0] is not None:
                             result = self.game.move_piece((x_pos, y_pos))
+
+                            if result == Globals.move_ids['win'] or result == Globals.move_ids['lose']:
+                                print('Game has ended')
+                                self.sock.send(b'0')
+                                self.sock.send(b'End game')
+                                return
+
                             if result != Globals.move_ids["couldn't"]:
                                 print('move result: ', result)
-                                self.sock.send(b'1' if result == Globals.move_ids['continue_capt'] else b'0')
-                                self.sock.send(str(self.game.board).encode())
+                                can_continue = b'1' if result == Globals.move_ids['continue_capt'] else b'0'
+                                self.sock.send(can_continue + str(self.game.board).encode())
                                 print('Sent some data')
                                 move_flag = True
 
@@ -94,5 +103,4 @@ class UI:
                         self.game.show_available_moves()
                         self.game.show_available_captures()
 
-                # self.sock.send(str(self.game.board).encode())
                     pygame.display.update()
