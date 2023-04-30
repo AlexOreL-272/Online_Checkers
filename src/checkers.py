@@ -3,9 +3,6 @@ import pygame
 import re
 from src.globals import Globals
 
-pygame.init()
-pygame.display.set_caption('Checkers')
-
 
 class Piece:
     def __init__(self, pos, enemy, role_in_game, queen=False):
@@ -30,11 +27,17 @@ class Piece:
 
 
 class Checkers:
+    pygame.display.set_caption('Checkers')
+
+    font = pygame.font.SysFont('Calibri', 32, True, False)
+    large_font = pygame.font.SysFont('Calibri', 54, True, False)
+
     def __init__(self, whoami):
         self.screen = pygame.display.set_mode(Globals.checkers_size)
 
-        self.turn = False  # False for me, True for enemy
+        self.turn = not whoami
         self.capture_series = False
+        self.total_moves = 0
 
         self.selected = [None, None]
         self.board = [None] * 8
@@ -64,14 +67,13 @@ class Checkers:
 
         new_board = re.findall('(\d{3}\((\d|None), (\d|None)\))', data)
 
-        # print('new board: ', new_board, len(new_board))
-
         for i in range(8):
             for j in range(8):
-                # print(new_board[63 - (i * 8 + j)][0])
                 self.board[i][j] = Piece.from_str(new_board[63 - (i * 8 + j)][0])
 
     def draw_board(self):
+        self.screen.fill(Globals.board_colors[0])
+
         for row in range(8):
             for col in range(8):
                 if self.selected[0] == row and self.selected[1] == col:
@@ -202,6 +204,7 @@ class Checkers:
 
         self.turn = not self.turn
         self.capture_series = False
+        self.total_moves += 1
 
         if new_pos[0] == 0:
             self.board[new_pos[0]][new_pos[1]].is_queen = True
@@ -217,8 +220,8 @@ class Checkers:
 
         self.board[new_pos[0]][new_pos[1]] = Piece(new_pos, False, prev_piece.role_in_game, prev_piece.is_queen)
         self.board[self.selected[0]][self.selected[1]] = Piece((None, None), False, False)
-        # removing captured piece
         self.board[new_pos[0] + 2 * dx - 1][new_pos[1] + 2 * dy - 1] = Piece((None, None), False, False)
+        self.total_moves += 1
 
         if new_pos[0] == 0:
             self.board[new_pos[0]][new_pos[1]].is_queen = True
@@ -227,15 +230,10 @@ class Checkers:
         if end_state == Globals.move_ids['win'] or end_state == Globals.move_ids['lose']:
             return end_state
 
-        if self.possible_captures(new_pos):
-            self.selected = new_pos
-            self.capture_series = True
-            return Globals.move_ids['continue_capt']
-        else:
-            self.selected = [None, None]
-            self.turn = not self.turn
-            self.capture_series = False
-            return Globals.move_ids['captured_one']
+        self.capture_series = self.possible_captures(new_pos)
+        self.selected = new_pos if self.capture_series else [None, None]
+        self.turn = self.turn if self.capture_series else not self.turn
+        return Globals.move_ids['continue_capt'] if self.capture_series else Globals.move_ids['captured_one']
 
     def move_piece(self, new_pos):
         possible_moves = self.possible_moves(self.selected)
@@ -249,3 +247,33 @@ class Checkers:
             return self.__capture_piece__(new_pos, current_piece)
 
         return Globals.move_ids["couldn't"]
+
+    def show_players(self, my_nick, enemy_nick, room_id):
+        self.draw_circle(Globals.queen_color, (8.2, 0.33 if self.turn else 7.63), Globals.point_radius)
+
+        my_nick = Checkers.font.render(my_nick, True, Globals.font_colors['Black'])
+        self.screen.blit(my_nick, (840, 750))
+        enemy_nick = Checkers.font.render(enemy_nick, True, Globals.font_colors['Black'])
+        self.screen.blit(enemy_nick, (840, 20))
+        room_id = Checkers.font.render('This room id: ' + room_id, True, Globals.font_colors['Black'])
+        self.screen.blit(room_id, (1000, 750))
+
+    def show_results(self, result, game_time):
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+
+            result_text = Checkers.large_font.render('You ' + ('win!' if not int(result) else 'lose!'), True,
+                                                     Globals.font_colors['Black'])
+            self.screen.blit(result_text, (880, 200))
+            game_time_text = Checkers.font.render('Game took: ' + game_time[0:10], True, Globals.font_colors['Black'])
+            self.screen.blit(game_time_text, (840, 400))
+            total_moves_text = Checkers.font.render('You\'ve made ' + str(self.total_moves) + ' moves', True,
+                                                    Globals.font_colors['Black'])
+            self.screen.blit(total_moves_text, (840, 450))
+            exit_text = Checkers.font.render('You can close this window', True, Globals.font_colors['Black'])
+            self.screen.blit(exit_text, (840, 500))
+
+            pygame.display.update()
