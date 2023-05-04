@@ -5,7 +5,13 @@ import traceback
 
 
 class Server:
+    """
+    Class of the server to perform the game 
+    """
     def __init__(self):
+        """
+        Constructs the server and initializes playing rooms
+        """
         self.main_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.main_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self.main_socket.bind(('localhost', 10111))
@@ -20,6 +26,11 @@ class Server:
 
     @staticmethod
     def send_init_data(room):
+        """
+        :param room: playing room to which send initial game state
+
+        Tells all players that the game has started and chooses the first player   
+        """
         room.first_pl.sock.send(f'{room.second_pl.nick}'.encode())
         room.second_pl.sock.send(f'{room.first_pl.nick}'.encode())
         time.sleep(0.05)
@@ -39,6 +50,10 @@ class Server:
         )
 
     def try_accept_player(self):
+        """
+        Tries to accept player and add it to the waiting list
+        """
+
         try:
             new_socket, addr = self.main_socket.accept()
             print(f'Connected {addr}')
@@ -55,6 +70,10 @@ class Server:
             pass
 
     def try_register_player(self):
+        """
+        Tries to get player's authorization information and add him to the playing room
+        """
+
         for player in self.authorizing_players:
             try:
                 action, nick, room_id = player[0].recv(100).decode().split(':')
@@ -81,6 +100,12 @@ class Server:
 
     @staticmethod
     def try_receive_game_from_first(room):
+        """
+        :param room: playing room to get info from
+
+        Tries to get game state from one of the players in a room
+        """
+
         try:
             data = room.first_pl.sock.recv(2000).decode()
             room.capture_series_fir = int(data[0])
@@ -100,6 +125,12 @@ class Server:
 
     @staticmethod
     def try_receive_game_from_second(room):
+        """
+        :param room: playing room to get info from
+
+        Tries to get game state from one of the players in a room
+        """
+
         try:
             data = room.second_pl.sock.recv(2000).decode()
             room.capture_series_sec = int(data[0])
@@ -118,6 +149,10 @@ class Server:
             pass
 
     def mainloop(self):
+        """
+        Runs the server
+        """
+
         while True:
             self.try_accept_player()
             self.try_register_player()

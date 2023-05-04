@@ -9,7 +9,15 @@ import time
 
 
 class UI:
+    """
+    Class of the user interface
+    """
+
     def __init__(self):
+        """
+        Constructs the UI
+        """
+
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self.sock.connect(('localhost', 10111))
@@ -29,6 +37,12 @@ class UI:
         self.update_screen()
 
     def update_screen(self, show_moves=False):
+        """
+        :param show_moves: flag if the moves need to be showed
+
+        Updates current game state
+        """
+
         self.game.draw_board()
         self.game.draw_pieces()
         self.game.show_players(self.my_nick, self.enemy_nick, self.room_id)
@@ -40,6 +54,12 @@ class UI:
         pygame.display.update()
 
     def perform_action(self, starttime):
+        """
+        :param starttime: starting time of the game
+
+        Receives the action from the server and acts accordingly
+        """
+
         data = self.sock.recv(2000).decode()
 
         action = data[0:4]
@@ -62,6 +82,10 @@ class UI:
         return False
 
     def mouse_clicked(self):
+        """
+        Performs the action according to mouse event
+        """
+
         y_pos, x_pos = pygame.mouse.get_pos()
         if y_pos >= Globals.checkers_size[1]:
             return False
@@ -87,6 +111,10 @@ class UI:
         return False
 
     def mainloop(self):
+        """
+        Main loop of the game
+        """
+
         self.enemy_nick = self.sock.recv(15).decode()
         self.update_screen()
         starttime = time.time()

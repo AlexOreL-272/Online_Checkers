@@ -3,6 +3,10 @@ from pygame.color import THECOLORS
 
 
 class Globals:
+    """
+    Class with global variables
+    """
+
     checkers_size = (1200, 800)
     auth_size = (400, 220)
     square_size = checkers_size[1] // 8
